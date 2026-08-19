@@ -19,7 +19,26 @@ architecture Behavioral of auto_mode_detector is
     signal mode_latched : std_logic := '0';
     signal riscv_flag   : std_logic := '0';
 begin
-    is_riscv_mode <= riscv_flag;
+    -- Combinational detection before latching, latched state thereafter
+    process(first_instr, mode_latched, riscv_flag)
+        variable opcode : std_logic_vector(6 downto 0);
+    begin
+        if mode_latched = '1' then
+            is_riscv_mode <= riscv_flag;
+        else
+            opcode := first_instr(6 downto 0);
+            if first_instr(1 downto 0) = "11" and
+               (opcode = OPCODE_R_TYPE or opcode = OPCODE_I_TYPE or
+                opcode = OPCODE_LOAD   or opcode = OPCODE_STORE  or
+                opcode = OPCODE_BRANCH or opcode = OPCODE_JAL    or
+                opcode = OPCODE_JALR   or opcode = OPCODE_LUI    or
+                opcode = OPCODE_AUIPC) then
+                is_riscv_mode <= '1';
+            else
+                is_riscv_mode <= '0';
+            end if;
+        end if;
+    end process;
 
     process(clk)
         variable opcode : std_logic_vector(6 downto 0);
@@ -30,7 +49,6 @@ begin
                 riscv_flag   <= '0';
             elsif mode_latched = '0' then
                 opcode := first_instr(6 downto 0);
-                -- RISC-V 32-bit instructions always have bits[1:0] = "11" and valid 7-bit opcode
                 if first_instr(1 downto 0) = "11" and
                    (opcode = OPCODE_R_TYPE or opcode = OPCODE_I_TYPE or
                     opcode = OPCODE_LOAD   or opcode = OPCODE_STORE  or

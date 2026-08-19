@@ -54,6 +54,8 @@ begin
                 res_int <= a and b;
             when ALU_COPY_B =>
                 res_int <= b;
+            when ALU_COPY_A =>
+                res_int <= a;
             when others =>
                 res_int <= (others => '0');
         end case;

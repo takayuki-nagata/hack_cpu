@@ -29,6 +29,7 @@ begin
     process(instr_16)
         variable c_code : std_logic_vector(5 downto 0);
         variable d_code : std_logic_vector(2 downto 0);
+        variable a_bit  : std_logic;
     begin
         -- Default mappings: x1 = A, x2 = D
         rs1 <= "00010"; -- x2 (D)
@@ -49,28 +50,80 @@ begin
         else
             -- C-Instruction: 1xx a c1c2c3c4c5c6 d1d2d3 j1j2j3
             is_c_instr <= '1';
-            imm        <= (others => '0');
+            a_bit      := instr_16(12);
+            c_code     := instr_16(11 downto 6);
+            d_code     := instr_16(5 downto 3);
+            jump_cond  <= instr_16(2 downto 0);
+
+            we_reg_a   <= d_code(2); -- d1 = A
+            we_reg_d   <= d_code(1); -- d2 = D
+            we_mem     <= d_code(0); -- d3 = M
+
+            use_mem    <= a_bit;
             use_imm    <= '0';
-            use_mem    <= instr_16(12); -- a bit (0 = A, 1 = M)
-
-            c_code := instr_16(11 downto 6);
-            d_code := instr_16(5 downto 3);
-            jump_cond <= instr_16(2 downto 0);
-
-            we_reg_a <= d_code(2); -- d1 = A
-            we_reg_d <= d_code(1); -- d2 = D
-            we_mem   <= d_code(0); -- d3 = M
+            imm        <= (others => '0');
 
             case c_code is
-                when "101010" => alu_op <= ALU_COPY_B; -- 0 (handled via zero)
-                when "001100" => alu_op <= ALU_COPY_B; -- D
-                when "110000" => alu_op <= ALU_COPY_B; -- A or M
-                when "000010" => alu_op <= ALU_ADD;    -- D+A or D+M
-                when "010011" => alu_op <= ALU_SUB;    -- D-A or D-M
-                when "000000" => alu_op <= ALU_AND;    -- D&A or D&M
-                when "010101" => alu_op <= ALU_OR;     -- D|A or D|M
-                when "000101" => alu_op <= ALU_XOR;    -- D^A or D^M
-                when others   => alu_op <= ALU_ADD;
+                when "101010" => -- 0
+                    alu_op  <= ALU_COPY_B;
+                    use_imm <= '1';
+                    imm     <= x"00000000";
+
+                when "111111" => -- 1
+                    alu_op  <= ALU_COPY_B;
+                    use_imm <= '1';
+                    imm     <= x"00000001";
+
+                when "111010" => -- -1
+                    alu_op  <= ALU_COPY_B;
+                    use_imm <= '1';
+                    imm     <= x"FFFFFFFF";
+
+                when "001100" => -- D
+                    alu_op  <= ALU_COPY_A;
+
+                when "110000" => -- A or M
+                    alu_op  <= ALU_COPY_B;
+
+                when "011111" => -- D+1
+                    alu_op  <= ALU_ADD;
+                    use_imm <= '1';
+                    imm     <= x"00000001";
+
+                when "110111" => -- A+1 or M+1
+                    alu_op  <= ALU_ADD;
+                    rs1     <= "00001"; -- Oper1 = A
+                    use_imm <= '1';
+                    imm     <= x"00000001";
+
+                when "001110" => -- D-1
+                    alu_op  <= ALU_ADD;
+                    use_imm <= '1';
+                    imm     <= x"FFFFFFFF"; -- -1 in 32-bit two's complement
+
+                when "110010" => -- A-1 or M-1
+                    alu_op  <= ALU_ADD;
+                    rs1     <= "00001"; -- Oper1 = A
+                    use_imm <= '1';
+                    imm     <= x"FFFFFFFF";
+
+                when "000010" => -- D+A or D+M
+                    alu_op  <= ALU_ADD;
+
+                when "010011" => -- D-A or D-M
+                    alu_op  <= ALU_SUB;
+
+                when "000000" => -- D&A or D&M
+                    alu_op  <= ALU_AND;
+
+                when "010101" => -- D|A or D|M
+                    alu_op  <= ALU_OR;
+
+                when "000101" => -- D^A or D^M
+                    alu_op  <= ALU_XOR;
+
+                when others =>
+                    alu_op  <= ALU_ADD;
             end case;
         end if;
     end process;

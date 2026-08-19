@@ -47,5 +47,6 @@ package rv32i_types is
     constant ALU_OR   : std_logic_vector(3 downto 0) := "1000";
     constant ALU_AND  : std_logic_vector(3 downto 0) := "1001";
     constant ALU_COPY_B : std_logic_vector(3 downto 0) := "1010";
+    constant ALU_COPY_A : std_logic_vector(3 downto 0) := "1011";
 
 end package rv32i_types;
