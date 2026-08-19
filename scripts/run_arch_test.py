@@ -41,14 +41,14 @@ def setup_repo():
 def compile_vhdl():
     print("[INFO] Compiling VHDL entities with GHDL...")
     vhdl_files = [
-        "rv32i_types.vhd",
-        "rv32i_regfile.vhd",
-        "rv32i_alu.vhd",
-        "rv32i_decode.vhd",
-        "auto_mode_detector.vhd",
-        "hack_translator.vhd",
-        "unified_cpu.vhd",
-        "tb_hex_runner.vhd"
+        os.path.join("rtl", "rv32i", "rv32i_types.vhd"),
+        os.path.join("rtl", "rv32i", "rv32i_regfile.vhd"),
+        os.path.join("rtl", "rv32i", "rv32i_alu.vhd"),
+        os.path.join("rtl", "rv32i", "rv32i_decode.vhd"),
+        os.path.join("rtl", "unified", "auto_mode_detector.vhd"),
+        os.path.join("rtl", "unified", "hack_translator.vhd"),
+        os.path.join("rtl", "unified", "unified_cpu.vhd"),
+        os.path.join("testbench", "unified", "tb_hex_runner.vhd")
     ]
     for vf in vhdl_files:
         fpath = os.path.join(REPO_DIR, vf)
