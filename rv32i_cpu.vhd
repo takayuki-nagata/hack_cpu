@@ -237,16 +237,50 @@ begin
         end if;
     end process;
 
-    -- Register Write Enable & Data Selection
-    process(opcode, alu_result, data_in, pc_reg)
+    -- Register Write Enable & Data Selection (including sub-word loads)
+    process(opcode, funct3, alu_result, data_in, pc_reg)
+        variable byte_sel : integer range 0 to 3;
+        variable load_val : std_logic_vector(31 downto 0);
     begin
+        byte_sel := to_integer(unsigned(alu_result(1 downto 0)));
+        case funct3 is
+            when "000" => -- LB
+                case byte_sel is
+                    when 0 => load_val := std_logic_vector(resize(signed(data_in(7 downto 0)), 32));
+                    when 1 => load_val := std_logic_vector(resize(signed(data_in(15 downto 8)), 32));
+                    when 2 => load_val := std_logic_vector(resize(signed(data_in(23 downto 16)), 32));
+                    when 3 => load_val := std_logic_vector(resize(signed(data_in(31 downto 24)), 32));
+                end case;
+            when "100" => -- LBU
+                case byte_sel is
+                    when 0 => load_val := x"000000" & data_in(7 downto 0);
+                    when 1 => load_val := x"000000" & data_in(15 downto 8);
+                    when 2 => load_val := x"000000" & data_in(23 downto 16);
+                    when 3 => load_val := x"000000" & data_in(31 downto 24);
+                end case;
+            when "001" => -- LH
+                if alu_result(1) = '0' then
+                    load_val := std_logic_vector(resize(signed(data_in(15 downto 0)), 32));
+                else
+                    load_val := std_logic_vector(resize(signed(data_in(31 downto 16)), 32));
+                end if;
+            when "101" => -- LHU
+                if alu_result(1) = '0' then
+                    load_val := x"0000" & data_in(15 downto 0);
+                else
+                    load_val := x"0000" & data_in(31 downto 16);
+                end if;
+            when others => -- LW
+                load_val := data_in;
+        end case;
+
         case opcode is
             when OPCODE_R_TYPE | OPCODE_I_TYPE | OPCODE_LUI | OPCODE_AUIPC =>
                 reg_we      <= '1';
                 reg_wr_data <= alu_result;
             when OPCODE_LOAD =>
                 reg_we      <= '1';
-                reg_wr_data <= data_in;
+                reg_wr_data <= load_val;
             when OPCODE_JAL | OPCODE_JALR =>
                 reg_we      <= '1';
                 reg_wr_data <= std_logic_vector(unsigned(pc_reg) + 4);
@@ -259,13 +293,13 @@ begin
     -- Memory Write Control
     mem_write <= '1' when opcode = OPCODE_STORE else '0';
 
-    -- Next PC logic
+    -- Next PC logic (with JALR LSB bit 0 masking per RISC-V Spec)
     process(pc_reg, opcode, branch_take, imm, rs1_data, alu_result)
     begin
         if opcode = OPCODE_JAL then
             next_pc <= std_logic_vector(unsigned(pc_reg) + unsigned(imm));
         elsif opcode = OPCODE_JALR then
-            next_pc <= std_logic_vector(unsigned(rs1_data) + unsigned(imm));
+            next_pc <= std_logic_vector((unsigned(rs1_data) + unsigned(imm)) and x"FFFFFFFE");
         elsif branch_take = '1' then
             next_pc <= std_logic_vector(unsigned(pc_reg) + unsigned(imm));
         else

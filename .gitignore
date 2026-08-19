@@ -7,6 +7,7 @@ decode_test
 cpu_test
 rv32i_cpu_tb
 unified_cpu_tb
+rv32i_compliance_tb
 
 # Temporary files
 *~
