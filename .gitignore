@@ -6,6 +6,7 @@ alu_test
 decode_test
 cpu_test
 rv32i_cpu_tb
+unified_cpu_tb
 
 # Temporary files
 *~
