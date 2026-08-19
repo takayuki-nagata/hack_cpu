@@ -1,5 +1,5 @@
 GHDL = ghdl
-GHDLFLAGS = --ieee=synopsys -fexplicit
+GHDLFLAGS = --std=08
 GHDLRUNFLAGS = --vcd=wave.vcd
 
 .PHONY: all test test-alu test-decode test-cpu clean wave
