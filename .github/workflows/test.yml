@@ -1,4 +1,4 @@
-name: VHDL Simulation CI
+name: VHDL Simulation & RISC-V Architectural Compliance CI
 
 on:
   push:
@@ -8,17 +8,19 @@ on:
 
 jobs:
   test:
-    name: Run GHDL VHDL Testbenches
+    name: Run GHDL VHDL & riscv-arch-test Suites
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Code with Submodules
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Install GHDL and Make
+      - name: Install GHDL, Make, Python3, and RISC-V GCC Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y ghdl make
+          sudo apt-get install -y ghdl make python3 gcc-riscv64-linux-gnu || sudo apt-get install -y gcc-riscv64-unknown-elf
 
-      - name: Execute VHDL Tests
+      - name: Execute All Test Suites
         run: make test

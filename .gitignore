@@ -8,6 +8,7 @@ cpu_test
 rv32i_cpu_tb
 unified_cpu_tb
 rv32i_compliance_tb
+build_arch_test/
 
 # Temporary files
 *~
