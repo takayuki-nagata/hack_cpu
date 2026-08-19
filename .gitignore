@@ -1,0 +1,11 @@
+# GHDL build outputs and intermediate files
+*.o
+*.cf
+wave.vcd
+alu_test
+decode_test
+cpu_test
+
+# Temporary files
+*~
+*.swp

@@ -76,10 +76,10 @@ begin
 	O_int <=  O_int_n;
 	
 	process(O_int)begin
-		if O_int = "0" then
+		if O_int = "0000000000000000" then
 			zr <= '1';
 			ng <= '0';
-		elsif O_int < "0" then
+		elsif O_int(15) = '1' then
 			zr <= '0';
 			ng <= '1';
 		else
