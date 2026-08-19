@@ -103,10 +103,11 @@ def run_tests():
         elf_file = os.path.join(BUILD_DIR, f"{tname}.elf")
         hex_file = os.path.join(BUILD_DIR, f"{tname}.hex")
 
+        linker_script = os.path.join(REPO_DIR, "scripts", "link.ld")
         # Compile assembly test to ELF
         cmd = [
-            GCC_BIN, "-march=rv32i", "-mabi=ilp32", "-nostdlib",
-            "-Wl,--build-id=none",
+            GCC_BIN, "-march=rv32i", "-mabi=ilp32", "-nostdlib", "-static",
+            "-Wl,--build-id=none", "-Wl,-N",
             "-I", TARGET_ENV_DIR,
             "-I", env_inc_dir,
             "-I", rv32i_inc_dir,
@@ -116,7 +117,7 @@ def run_tests():
             "-DRVTEST_SELFCHECK=1",
             f"-DTEST_FILE=\"{tname}.S\"",
             "-DSIGNATURE_FILE=\"empty_sig.h\"",
-            "-Ttext=0x00000000",
+            "-T", linker_script,
             s_file, "-o", elf_file
         ]
         code, out, err = run_cmd(cmd)
