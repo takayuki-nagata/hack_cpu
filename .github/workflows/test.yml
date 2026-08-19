@@ -1,0 +1,24 @@
+name: VHDL Simulation CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run GHDL VHDL Testbenches
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install GHDL and Make
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghdl make
+
+      - name: Execute VHDL Tests
+        run: make test
