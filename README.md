@@ -48,11 +48,12 @@ Integrates a 32-bit RISC-V execution engine (32-bit ALU, 32x32-bit Register File
 - `cpu.vhd`: Top-level Hack CPU core.
 
 ### 3. Standalone 32-Bit RISC-V RV32I CPU Core (`rtl/rv32i/`)
-- `rv32i_types.vhd`: Package definitions for RISC-V opcodes, funct3/funct7, and ALU constants.
+- `rv32i_types.vhd`: Package definitions for RISC-V opcodes, funct3/funct7, Machine CSR addresses, and ALU constants.
 - `rv32i_regfile.vhd`: 32 x 32-bit Register File (with $x0$ hardwired to 0).
 - `rv32i_alu.vhd`: 32-bit ALU.
-- `rv32i_decode.vhd`: 32-bit Instruction Decoder and immediate generator.
-- `rv32i_cpu.vhd`: Top-level RISC-V RV32I single-cycle processor core with sub-word memory access (`LB`, `LBU`, `LH`, `LHU`, `LW`, `SB`, `SH`, `SW`) and Spec JALR LSB masking.
+- `rv32i_decode.vhd`: 32-bit Instruction Decoder and immediate generator (with 12-bit CSR address and zero-extended immediate extraction).
+- `rv32i_csrs.vhd`: Machine-Mode Control and Status Registers (`Zicsr`: `mstatus`, `mie`, `mtvec`, `mscratch`, `mepc`, `mcause`, `mtval`, `mip`) and trap/interrupt unit for Zephyr RTOS readiness.
+- `rv32i_cpu.vhd`: Top-level RISC-V RV32I single-cycle processor core with sub-word memory access (`LB`, `LBU`, `LH`, `LHU`, `LW`, `SB`, `SH`, `SW`), external hardware interrupt inputs (`timer_irq_in`, `ext_irq_in`, `sw_irq_in`), Spec JALR LSB masking, and system trap vectoring (`ECALL`, `EBREAK`, `MRET`).
 
 ---
 
@@ -98,6 +99,7 @@ Run specific test targets:
 ```bash
 make test-arch-compliance  # Run official riscv-arch-test (39 assembly test cases)
 make test-compliance       # Run RISC-V VHDL spec compliance testbench
+make test-csr              # Test Machine-Mode CSRs & Trap Unit
 make test-unified          # Test Unified Dual-ISA Auto-Detection Core
 make test-hack             # Test Standalone Hack 16-bit CPU Core
 make test-rv32i            # Test Standalone RISC-V 32-bit CPU Core
