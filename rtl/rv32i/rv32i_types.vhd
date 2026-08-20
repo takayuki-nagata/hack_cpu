@@ -16,6 +16,27 @@ package rv32i_types is
     constant OPCODE_JALR     : std_logic_vector(6 downto 0) := "1100111";
     constant OPCODE_LUI      : std_logic_vector(6 downto 0) := "0110111";
     constant OPCODE_AUIPC    : std_logic_vector(6 downto 0) := "0010111";
+    constant OPCODE_SYSTEM   : std_logic_vector(6 downto 0) := "1110011";
+
+    -- funct3 for System / CSR
+    constant FUNCT3_PRIV     : std_logic_vector(2 downto 0) := "000";
+    constant FUNCT3_CSRRW    : std_logic_vector(2 downto 0) := "001";
+    constant FUNCT3_CSRRS    : std_logic_vector(2 downto 0) := "010";
+    constant FUNCT3_CSRRC    : std_logic_vector(2 downto 0) := "011";
+    constant FUNCT3_CSRRWI   : std_logic_vector(2 downto 0) := "101";
+    constant FUNCT3_CSRRSI   : std_logic_vector(2 downto 0) := "110";
+    constant FUNCT3_CSRRCI   : std_logic_vector(2 downto 0) := "111";
+
+    -- Machine-Mode CSR Addresses
+    constant CSR_MSTATUS     : std_logic_vector(11 downto 0) := x"300";
+    constant CSR_MISA        : std_logic_vector(11 downto 0) := x"301";
+    constant CSR_MIE        : std_logic_vector(11 downto 0) := x"304";
+    constant CSR_MTVEC      : std_logic_vector(11 downto 0) := x"305";
+    constant CSR_MSCRATCH   : std_logic_vector(11 downto 0) := x"340";
+    constant CSR_MEPC       : std_logic_vector(11 downto 0) := x"341";
+    constant CSR_MCAUSE     : std_logic_vector(11 downto 0) := x"342";
+    constant CSR_MTVAL      : std_logic_vector(11 downto 0) := x"343";
+    constant CSR_MIP        : std_logic_vector(11 downto 0) := x"344";
 
     -- funct3 for ALU I-type / R-type
     constant FUNCT3_ADD_SUB : std_logic_vector(2 downto 0) := "000";

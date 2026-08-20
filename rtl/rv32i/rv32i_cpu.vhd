@@ -15,7 +15,10 @@ entity rv32i_cpu is
         pc_out      : out std_logic_vector(31 downto 0);
         data_addr   : out std_logic_vector(31 downto 0);
         data_out    : out std_logic_vector(31 downto 0);
-        mem_write   : out std_logic
+        mem_write   : out std_logic;
+        timer_irq_in: in  std_logic := '0';
+        ext_irq_in  : in  std_logic := '0';
+        sw_irq_in   : in  std_logic := '0'
     );
 end rv32i_cpu;
 
@@ -30,7 +33,31 @@ architecture Behavioral of rv32i_cpu is
             rs1         : out std_logic_vector(4 downto 0);
             rs2         : out std_logic_vector(4 downto 0);
             funct7      : out std_logic_vector(6 downto 0);
-            imm         : out std_logic_vector(31 downto 0)
+            imm         : out std_logic_vector(31 downto 0);
+            csr_addr    : out std_logic_vector(11 downto 0);
+            uimm        : out std_logic_vector(31 downto 0)
+        );
+    end component;
+
+    component rv32i_csrs
+        Port (
+            clk            : in  std_logic;
+            reset          : in  std_logic;
+            csr_addr       : in  std_logic_vector(11 downto 0);
+            csr_wdata      : in  std_logic_vector(31 downto 0);
+            csr_op         : in  std_logic_vector(2 downto 0);
+            csr_rdata      : out std_logic_vector(31 downto 0);
+            trap_entry     : in  std_logic;
+            trap_cause     : in  std_logic_vector(31 downto 0);
+            trap_pc        : in  std_logic_vector(31 downto 0);
+            trap_val       : in  std_logic_vector(31 downto 0);
+            trap_return    : in  std_logic;
+            timer_irq_in   : in  std_logic;
+            ext_irq_in     : in  std_logic;
+            sw_irq_in      : in  std_logic;
+            irq_pending    : out std_logic;
+            mtvec_out      : out std_logic_vector(31 downto 0);
+            mepc_out       : out std_logic_vector(31 downto 0)
         );
     end component;
 
@@ -83,10 +110,63 @@ architecture Behavioral of rv32i_cpu is
 
     signal branch_take   : std_logic;
 
+    -- CSR & Trap Signals
+    signal csr_addr     : std_logic_vector(11 downto 0);
+    signal uimm         : std_logic_vector(31 downto 0);
+    signal csr_rdata    : std_logic_vector(31 downto 0);
+    signal csr_wdata    : std_logic_vector(31 downto 0);
+    signal csr_op       : std_logic_vector(2 downto 0);
+    signal trap_entry   : std_logic;
+    signal trap_cause   : std_logic_vector(31 downto 0);
+    signal trap_pc      : std_logic_vector(31 downto 0);
+    signal trap_val     : std_logic_vector(31 downto 0);
+    signal trap_return  : std_logic;
+    signal irq_pending  : std_logic;
+    signal mtvec_out    : std_logic_vector(31 downto 0);
+    signal mepc_out     : std_logic_vector(31 downto 0);
+
+    signal is_ecall     : std_logic;
+    signal is_ebreak    : std_logic;
+    signal is_mret      : std_logic;
+
 begin
     pc_out    <= pc_reg;
     data_addr <= alu_result;
     data_out  <= rs2_data;
+
+    -- System instruction decoding
+    is_ecall  <= '1' when (opcode = OPCODE_SYSTEM and funct3 = "000" and imm(11 downto 0) = x"000") else '0';
+    is_ebreak <= '1' when (opcode = OPCODE_SYSTEM and funct3 = "000" and imm(11 downto 0) = x"001") else '0';
+    is_mret   <= '1' when (opcode = OPCODE_SYSTEM and funct3 = "000" and imm(11 downto 0) = x"302") else '0';
+
+    csr_op    <= funct3 when opcode = OPCODE_SYSTEM else "000";
+    csr_wdata <= uimm when (funct3 = FUNCT3_CSRRWI or funct3 = FUNCT3_CSRRSI or funct3 = FUNCT3_CSRRCI) else rs1_data;
+
+    trap_entry <= irq_pending or is_ecall or is_ebreak;
+    trap_pc    <= pc_reg;
+    trap_val   <= x"00000000";
+    trap_return<= is_mret;
+
+    process(irq_pending, timer_irq_in, ext_irq_in, sw_irq_in, is_ecall, is_ebreak)
+    begin
+        if irq_pending = '1' then
+            if timer_irq_in = '1' then
+                trap_cause <= x"80000007"; -- Machine Timer Interrupt
+            elsif ext_irq_in = '1' then
+                trap_cause <= x"8000000B"; -- Machine External Interrupt
+            elsif sw_irq_in = '1' then
+                trap_cause <= x"80000003"; -- Machine Software Interrupt
+            else
+                trap_cause <= x"80000007";
+            end if;
+        elsif is_ecall = '1' then
+            trap_cause <= x"0000000B"; -- Environment call from M-mode
+        elsif is_ebreak = '1' then
+            trap_cause <= x"00000003"; -- Breakpoint
+        else
+            trap_cause <= x"00000000";
+        end if;
+    end process;
 
     -- Decoder instantiation
     dec_inst : rv32i_decode
@@ -98,7 +178,31 @@ begin
             rs1         => rs1,
             rs2         => rs2,
             funct7      => funct7,
-            imm         => imm
+            imm         => imm,
+            csr_addr    => csr_addr,
+            uimm        => uimm
+        );
+
+    -- CSR Unit instantiation
+    csrs_inst : rv32i_csrs
+        port map (
+            clk          => clk,
+            reset        => reset,
+            csr_addr     => csr_addr,
+            csr_wdata    => csr_wdata,
+            csr_op       => csr_op,
+            csr_rdata    => csr_rdata,
+            trap_entry   => trap_entry,
+            trap_cause   => trap_cause,
+            trap_pc      => trap_pc,
+            trap_val     => trap_val,
+            trap_return  => trap_return,
+            timer_irq_in => timer_irq_in,
+            ext_irq_in   => ext_irq_in,
+            sw_irq_in    => sw_irq_in,
+            irq_pending  => irq_pending,
+            mtvec_out    => mtvec_out,
+            mepc_out     => mepc_out
         );
 
     -- Register file instantiation
@@ -284,6 +388,14 @@ begin
             when OPCODE_JAL | OPCODE_JALR =>
                 reg_we      <= '1';
                 reg_wr_data <= std_logic_vector(unsigned(pc_reg) + 4);
+            when OPCODE_SYSTEM =>
+                if funct3 /= "000" then
+                    reg_we      <= '1';
+                    reg_wr_data <= csr_rdata;
+                else
+                    reg_we      <= '0';
+                    reg_wr_data <= (others => '0');
+                end if;
             when others =>
                 reg_we      <= '0';
                 reg_wr_data <= (others => '0');
@@ -293,10 +405,14 @@ begin
     -- Memory Write Control
     mem_write <= '1' when opcode = OPCODE_STORE else '0';
 
-    -- Next PC logic (with JALR LSB bit 0 masking per RISC-V Spec)
-    process(pc_reg, opcode, branch_take, imm, rs1_data, alu_result)
+    -- Next PC logic (with interrupts, traps, MRET, JAL, JALR, Branch)
+    process(pc_reg, opcode, branch_take, imm, rs1_data, alu_result, trap_entry, mtvec_out, is_mret, mepc_out)
     begin
-        if opcode = OPCODE_JAL then
+        if trap_entry = '1' then
+            next_pc <= mtvec_out;
+        elsif is_mret = '1' then
+            next_pc <= mepc_out;
+        elsif opcode = OPCODE_JAL then
             next_pc <= std_logic_vector(unsigned(pc_reg) + unsigned(imm));
         elsif opcode = OPCODE_JALR then
             next_pc <= std_logic_vector((unsigned(rs1_data) + unsigned(imm)) and x"FFFFFFFE");

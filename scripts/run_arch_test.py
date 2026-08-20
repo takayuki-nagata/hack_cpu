@@ -45,6 +45,7 @@ def compile_vhdl():
         os.path.join("rtl", "rv32i", "rv32i_regfile.vhd"),
         os.path.join("rtl", "rv32i", "rv32i_alu.vhd"),
         os.path.join("rtl", "rv32i", "rv32i_decode.vhd"),
+        os.path.join("rtl", "rv32i", "rv32i_csrs.vhd"),
         os.path.join("rtl", "unified", "auto_mode_detector.vhd"),
         os.path.join("rtl", "unified", "hack_translator.vhd"),
         os.path.join("rtl", "unified", "unified_cpu.vhd"),

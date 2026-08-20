@@ -58,7 +58,9 @@ architecture Behavioral of unified_cpu is
             rs1         : out std_logic_vector(4 downto 0);
             rs2         : out std_logic_vector(4 downto 0);
             funct7      : out std_logic_vector(6 downto 0);
-            imm         : out std_logic_vector(31 downto 0)
+            imm         : out std_logic_vector(31 downto 0);
+            csr_addr    : out std_logic_vector(11 downto 0);
+            uimm        : out std_logic_vector(31 downto 0)
         );
     end component;
 
@@ -179,7 +181,9 @@ begin
             rs1         => rv_rs1,
             rs2         => rv_rs2,
             funct7      => rv_funct7,
-            imm         => rv_imm
+            imm         => rv_imm,
+            csr_addr    => open,
+            uimm        => open
         );
 
     -- Register File

@@ -3,10 +3,10 @@ GHDLFLAGS = --std=08
 GHDLRUNFLAGS = --vcd=wave.vcd
 
 RTL_HACK = rtl/hack/decode.vhd rtl/hack/alu.vhd rtl/hack/cpu.vhd
-RTL_RV32I = rtl/rv32i/rv32i_types.vhd rtl/rv32i/rv32i_regfile.vhd rtl/rv32i/rv32i_alu.vhd rtl/rv32i/rv32i_decode.vhd
+RTL_RV32I = rtl/rv32i/rv32i_types.vhd rtl/rv32i/rv32i_regfile.vhd rtl/rv32i/rv32i_alu.vhd rtl/rv32i/rv32i_decode.vhd rtl/rv32i/rv32i_csrs.vhd
 RTL_UNIFIED = $(RTL_RV32I) rtl/unified/auto_mode_detector.vhd rtl/unified/hack_translator.vhd rtl/unified/unified_cpu.vhd
 
-.PHONY: all test test-hack test-rv32i test-unified test-compliance test-arch-compliance test-alu test-decode test-cpu clean wave
+.PHONY: all test test-hack test-rv32i test-csr test-unified test-compliance test-arch-compliance test-alu test-decode test-cpu clean wave
 
 all: test
 
@@ -34,6 +34,11 @@ test-rv32i:
 	$(GHDL) -e $(GHDLFLAGS) rv32i_cpu_tb
 	$(GHDL) -r $(GHDLFLAGS) rv32i_cpu_tb --stop-time=200ns
 
+test-csr:
+	$(GHDL) -a $(GHDLFLAGS) $(RTL_RV32I) rtl/rv32i/rv32i_cpu.vhd testbench/rv32i/rv32i_csr_tb.vhd
+	$(GHDL) -e $(GHDLFLAGS) rv32i_csr_tb
+	$(GHDL) -r $(GHDLFLAGS) rv32i_csr_tb --stop-time=200ns
+
 test-compliance:
 	$(GHDL) -a $(GHDLFLAGS) $(RTL_RV32I) rtl/rv32i/rv32i_cpu.vhd testbench/rv32i/rv32i_compliance_tb.vhd
 	$(GHDL) -e $(GHDLFLAGS) rv32i_compliance_tb
@@ -49,11 +54,11 @@ test-unified:
 	$(GHDL) -e $(GHDLFLAGS) unified_cpu_tb
 	$(GHDL) -r $(GHDLFLAGS) unified_cpu_tb --stop-time=200ns
 
-test: test-hack test-rv32i test-compliance test-unified test-arch-compliance
+test: test-hack test-rv32i test-csr test-compliance test-unified test-arch-compliance
 
 wave: test-alu
 	gtkwave wave.vcd &
 
 clean:
 	ghdl --clean
-	rm -rf *.o *.cf wave.vcd alu_test decode_test cpu_test rv32i_cpu_tb unified_cpu_tb rv32i_compliance_tb build_arch_test
+	rm -rf *.o *.cf wave.vcd alu_test decode_test cpu_test rv32i_cpu_tb unified_cpu_tb rv32i_compliance_tb rv32i_csr_tb build_arch_test

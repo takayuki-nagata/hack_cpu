@@ -15,7 +15,9 @@ entity rv32i_decode is
         rs1         : out std_logic_vector(4 downto 0);
         rs2         : out std_logic_vector(4 downto 0);
         funct7      : out std_logic_vector(6 downto 0);
-        imm         : out std_logic_vector(31 downto 0)
+        imm         : out std_logic_vector(31 downto 0);
+        csr_addr    : out std_logic_vector(11 downto 0);
+        uimm        : out std_logic_vector(31 downto 0)
     );
 end rv32i_decode;
 
@@ -29,6 +31,8 @@ begin
     rs1         <= instruction(19 downto 15);
     rs2         <= instruction(24 downto 20);
     funct7      <= instruction(31 downto 25);
+    csr_addr    <= instruction(31 downto 20);
+    uimm        <= std_logic_vector(resize(unsigned(instruction(19 downto 15)), 32));
 
     -- Immediate generation based on instruction format
     process(instruction, op_internal)
@@ -53,6 +57,10 @@ begin
             -- J-type (JAL)
             when OPCODE_JAL =>
                 imm <= std_logic_vector(resize(signed(instruction(31) & instruction(19 downto 12) & instruction(20) & instruction(30 downto 21) & '0'), 32));
+
+            -- SYSTEM / CSR
+            when OPCODE_SYSTEM =>
+                imm <= std_logic_vector(resize(unsigned(instruction(19 downto 15)), 32));
 
             when others =>
                 imm <= (others => '0');
