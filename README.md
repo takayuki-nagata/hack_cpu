@@ -97,7 +97,7 @@ make test
 
 Run specific test targets:
 ```bash
-make test-arch-compliance  # Run official riscv-arch-test (39 assembly test cases)
+make test-arch-compliance  # Run official riscv-arch-test (45 assembly test cases: 39 RV32I + 6 Zicsr)
 make test-compliance       # Run RISC-V VHDL spec compliance testbench
 make test-csr              # Test Machine-Mode CSRs & Trap Unit
 make test-unified          # Test Unified Dual-ISA Auto-Detection Core

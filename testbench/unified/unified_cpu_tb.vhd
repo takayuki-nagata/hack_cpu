@@ -21,7 +21,10 @@ architecture behavior of unified_cpu_tb is
             data_addr      : out std_logic_vector(31 downto 0);
             data_out       : out std_logic_vector(31 downto 0);
             mem_write      : out std_logic;
-            active_mode    : out std_logic
+            active_mode    : out std_logic;
+            timer_irq_in   : in  std_logic := '0';
+            ext_irq_in     : in  std_logic := '0';
+            sw_irq_in      : in  std_logic := '0'
         );
     end component;
 

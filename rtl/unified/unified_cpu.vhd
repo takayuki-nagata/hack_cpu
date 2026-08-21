@@ -16,7 +16,10 @@ entity unified_cpu is
         data_addr      : out std_logic_vector(31 downto 0);
         data_out       : out std_logic_vector(31 downto 0);
         mem_write      : out std_logic;
-        active_mode    : out std_logic -- 0: Hack 16-bit, 1: RISC-V 32-bit
+        active_mode    : out std_logic; -- 0: Hack 16-bit, 1: RISC-V 32-bit
+        timer_irq_in   : in  std_logic := '0';
+        ext_irq_in     : in  std_logic := '0';
+        sw_irq_in      : in  std_logic := '0'
     );
 end unified_cpu;
 
@@ -61,6 +64,28 @@ architecture Behavioral of unified_cpu is
             imm         : out std_logic_vector(31 downto 0);
             csr_addr    : out std_logic_vector(11 downto 0);
             uimm        : out std_logic_vector(31 downto 0)
+        );
+    end component;
+
+    component rv32i_csrs
+        Port (
+            clk            : in  std_logic;
+            reset          : in  std_logic;
+            csr_addr       : in  std_logic_vector(11 downto 0);
+            csr_wdata      : in  std_logic_vector(31 downto 0);
+            csr_op         : in  std_logic_vector(2 downto 0);
+            csr_rdata      : out std_logic_vector(31 downto 0);
+            trap_entry     : in  std_logic;
+            trap_cause     : in  std_logic_vector(31 downto 0);
+            trap_pc        : in  std_logic_vector(31 downto 0);
+            trap_val       : in  std_logic_vector(31 downto 0);
+            trap_return    : in  std_logic;
+            timer_irq_in   : in  std_logic;
+            ext_irq_in     : in  std_logic;
+            sw_irq_in      : in  std_logic;
+            irq_pending    : out std_logic;
+            mtvec_out      : out std_logic_vector(31 downto 0);
+            mepc_out       : out std_logic_vector(31 downto 0)
         );
     end component;
 
@@ -115,6 +140,8 @@ architecture Behavioral of unified_cpu is
     signal rv_rs2       : std_logic_vector(4 downto 0);
     signal rv_funct7    : std_logic_vector(6 downto 0);
     signal rv_imm       : std_logic_vector(31 downto 0);
+    signal rv_csr_addr  : std_logic_vector(11 downto 0);
+    signal rv_uimm      : std_logic_vector(31 downto 0);
 
     -- Register file control signals
     signal rf_rs1_addr  : std_logic_vector(4 downto 0);
@@ -131,6 +158,22 @@ architecture Behavioral of unified_cpu is
     signal alu_ctrl     : std_logic_vector(3 downto 0);
     signal alu_result   : std_logic_vector(31 downto 0);
     signal alu_zero     : std_logic;
+
+    -- CSR & Trap Signals
+    signal csr_rdata    : std_logic_vector(31 downto 0);
+    signal csr_wdata    : std_logic_vector(31 downto 0);
+    signal csr_op       : std_logic_vector(2 downto 0);
+    signal trap_entry   : std_logic;
+    signal trap_cause   : std_logic_vector(31 downto 0);
+    signal trap_pc      : std_logic_vector(31 downto 0);
+    signal trap_val     : std_logic_vector(31 downto 0);
+    signal trap_return  : std_logic;
+    signal irq_pending  : std_logic;
+    signal mtvec_out    : std_logic_vector(31 downto 0);
+    signal mepc_out     : std_logic_vector(31 downto 0);
+    signal is_ecall     : std_logic;
+    signal is_ebreak    : std_logic;
+    signal is_mret      : std_logic;
 
     -- RISC-V Branch Evaluation
     signal rv_branch_take : std_logic;
@@ -182,9 +225,65 @@ begin
             rs2         => rv_rs2,
             funct7      => rv_funct7,
             imm         => rv_imm,
-            csr_addr    => open,
-            uimm        => open
+            csr_addr    => rv_csr_addr,
+            uimm        => rv_uimm
         );
+
+    -- CSRs & Trap Unit
+    csrs_inst : rv32i_csrs
+        port map (
+            clk          => clk,
+            reset        => reset,
+            csr_addr     => rv_csr_addr,
+            csr_wdata    => csr_wdata,
+            csr_op       => csr_op,
+            csr_rdata    => csr_rdata,
+            trap_entry   => trap_entry,
+            trap_cause   => trap_cause,
+            trap_pc      => trap_pc,
+            trap_val     => trap_val,
+            trap_return  => trap_return,
+            timer_irq_in => timer_irq_in,
+            ext_irq_in   => ext_irq_in,
+            sw_irq_in    => sw_irq_in,
+            irq_pending  => irq_pending,
+            mtvec_out    => mtvec_out,
+            mepc_out     => mepc_out
+        );
+
+    -- System instruction decoding
+    is_ecall  <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_imm(11 downto 0) = x"000") else '0';
+    is_ebreak <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_imm(11 downto 0) = x"001") else '0';
+    is_mret   <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_imm(11 downto 0) = x"302") else '0';
+
+    csr_op    <= rv_funct3 when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM) else "000";
+    csr_wdata <= rv_uimm when (rv_funct3 = FUNCT3_CSRRWI or rv_funct3 = FUNCT3_CSRRSI or rv_funct3 = FUNCT3_CSRRCI) else rf_rs1_data;
+
+    trap_entry <= irq_pending or is_ecall or is_ebreak when is_riscv_mode = '1' else '0';
+    trap_pc    <= pc_reg;
+    trap_val   <= (others => '0');
+    trap_return<= is_mret when is_riscv_mode = '1' else '0';
+
+    process(irq_pending, timer_irq_in, ext_irq_in, sw_irq_in, is_ecall, is_ebreak)
+    begin
+        if irq_pending = '1' then
+            if timer_irq_in = '1' then
+                trap_cause <= x"80000007";
+            elsif ext_irq_in = '1' then
+                trap_cause <= x"8000000B";
+            elsif sw_irq_in = '1' then
+                trap_cause <= x"80000003";
+            else
+                trap_cause <= x"80000007";
+            end if;
+        elsif is_ecall = '1' then
+            trap_cause <= x"0000000B";
+        elsif is_ebreak = '1' then
+            trap_cause <= x"00000003";
+        else
+            trap_cause <= (others => '0');
+        end if;
+    end process;
 
     -- Register File
     reg_file : rv32i_regfile
@@ -244,7 +343,7 @@ begin
     end process;
 
     -- Register Address & Operand Muxing based on Execution Mode
-    process(is_riscv_mode, rv_rs1, rv_rs2, rv_rd, h_rs1, h_rs2, h_rd, h_we_reg_a, h_we_reg_d, alu_result, data_in, rv_opcode, rv_imm, h_use_imm, h_imm, h_use_mem, rf_rs1_data, rf_rs2_data, rv_funct3, rv_funct7, pc_reg)
+    process(is_riscv_mode, rv_rs1, rv_rs2, rv_rd, h_rs1, h_rs2, h_rd, h_we_reg_a, h_we_reg_d, alu_result, data_in, rv_opcode, rv_imm, h_use_imm, h_imm, h_use_mem, rf_rs1_data, rf_rs2_data, rv_funct3, rv_funct7, pc_reg, csr_rdata)
         variable byte_sel : integer range 0 to 3;
         variable load_val : std_logic_vector(31 downto 0);
     begin
@@ -338,6 +437,14 @@ begin
                 when OPCODE_JAL | OPCODE_JALR =>
                     rf_we       <= '1';
                     rf_wr_data  <= std_logic_vector(unsigned(pc_reg) + 4);
+                when OPCODE_SYSTEM =>
+                    if rv_funct3 /= FUNCT3_PRIV then
+                        rf_we       <= '1';
+                        rf_wr_data  <= csr_rdata;
+                    else
+                        rf_we       <= '0';
+                        rf_wr_data  <= (others => '0');
+                    end if;
                 when others =>
                     rf_we       <= '0';
                     rf_wr_data  <= (others => '0');
@@ -377,10 +484,14 @@ begin
     end process;
 
     -- Next PC Logic
-    process(pc_reg, is_riscv_mode, rv_opcode, rv_branch_take, rv_imm, rf_rs1_data, hack_jump_take, rf_rs2_data)
+    process(pc_reg, is_riscv_mode, rv_opcode, rv_branch_take, rv_imm, rf_rs1_data, hack_jump_take, rf_rs2_data, trap_entry, mtvec_out, is_mret, mepc_out)
     begin
         if is_riscv_mode = '1' then
-            if rv_opcode = OPCODE_JAL then
+            if trap_entry = '1' then
+                next_pc <= mtvec_out;
+            elsif is_mret = '1' then
+                next_pc <= mepc_out;
+            elsif rv_opcode = OPCODE_JAL then
                 next_pc <= std_logic_vector(unsigned(pc_reg) + unsigned(rv_imm));
             elsif rv_opcode = OPCODE_JALR then
                 next_pc <= std_logic_vector((unsigned(rf_rs1_data) + unsigned(rv_imm)) and x"FFFFFFFE");
