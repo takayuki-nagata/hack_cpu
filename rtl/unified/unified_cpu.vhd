@@ -252,9 +252,9 @@ begin
         );
 
     -- System instruction decoding
-    is_ecall  <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_imm(11 downto 0) = x"000") else '0';
-    is_ebreak <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_imm(11 downto 0) = x"001") else '0';
-    is_mret   <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_imm(11 downto 0) = x"302") else '0';
+    is_ecall  <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_csr_addr = x"000") else '0';
+    is_ebreak <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_csr_addr = x"001") else '0';
+    is_mret   <= '1' when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM and rv_funct3 = FUNCT3_PRIV and rv_csr_addr = x"302") else '0';
 
     csr_op    <= rv_funct3 when (is_riscv_mode = '1' and rv_opcode = OPCODE_SYSTEM) else "000";
     csr_wdata <= rv_uimm when (rv_funct3 = FUNCT3_CSRRWI or rv_funct3 = FUNCT3_CSRRSI or rv_funct3 = FUNCT3_CSRRCI) else rf_rs1_data;
